@@ -1,0 +1,167 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
+
+using namespace std;
+
+struct Cell {
+    int x, y;
+    Cell(int x, int y) : x(x), y(y) {}
+};
+
+struct Node {
+    int x, y, cost, heuristic;
+    Node* parent;
+    Node(int x, int y, Node* parent = nullptr) : x(x), y(y), parent(parent), cost(0), heuristic(0) {}
+    int getScore() const { return cost + heuristic; }
+};
+
+bool operator<(const Node& a, const Node& b) {
+    return a.getScore() > b.getScore(); 
+}
+
+class Maze {
+private:
+    int width, height;
+    vector<vector<int>> grid;
+
+public:
+    Maze(int width, int height) : width(width), height(height) {
+        grid.resize(height, vector<int>(width, 1)); // 1 represents walls
+    }
+
+    void generateMaze() {
+        srand(time(0)); // Seed for random number generation
+
+        int startX = rand() % width;
+        int startY = rand() % height;
+        grid[startY][startX] = 0; // 0 represents passages
+
+        vector<Cell> frontier;
+        frontier.push_back(Cell(startX, startY));
+
+        while (!frontier.empty()) {
+            int randIndex = rand() % frontier.size();
+            Cell current = frontier[randIndex];
+            frontier.erase(frontier.begin() + randIndex);
+
+            if (isValidNextCell(current.x, current.y)) {
+                grid[current.y][current.x] = 0; // Make it a passage
+                vector<Cell> neighbors = getNeighbors(current.x, current.y);
+                frontier.insert(frontier.end(), neighbors.begin(), neighbors.end());
+            }
+        }
+    }
+
+    void printMaze() {
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                cout << (grid[y][x] == 1 ? '#' : ' ');
+            }
+            cout << endl;
+        }
+    }
+
+    vector<Cell> findPathAStar(Cell start, Cell end) {
+        auto compare = [](const Node* a, const Node* b) { return a->getScore() > b->getScore(); };
+        priority_queue<Node*, vector<Node*>, decltype(compare)> openSet(compare);
+
+        Node* startNode = new Node(start.x, start.y);
+        startNode->cost = 0;
+        startNode->heuristic = abs(start.x - end.x) + abs(start.y - end.y);
+        openSet.push(startNode);
+
+        vector<vector<bool>> closedSet(height, vector<bool>(width, false));
+
+        while (!openSet.empty()) {
+            Node* currentNode = openSet.top();
+            openSet.pop();
+
+            if (currentNode->x == end.x && currentNode->y == end.y) {
+                return reconstructPath(currentNode);
+            }
+
+            closedSet[currentNode->y][currentNode->x] = true;
+
+            vector<Cell> directions = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
+            for (Cell dir : directions) {
+                int nextX = currentNode->x + dir.x;
+                int nextY = currentNode->y + dir.y;
+
+                if (nextX >= 0 && nextX < width && nextY >= 0 && nextY < height &&
+                    grid[nextY][nextX] == 0 && !closedSet[nextY][nextX]) {
+                    Node* neighbor = new Node(nextX, nextY, currentNode);
+                    neighbor->cost = currentNode->cost + 1;
+                    neighbor->heuristic = abs(nextX - end.x) + abs(nextY - end.y);
+                    openSet.push(neighbor);
+                }
+            }
+        }
+
+        return vector<Cell>(); // Return empty path if no path is found
+ }
+
+private:
+    bool isValidNextCell(int x, int y) {
+        if (x < 0 || y < 0 || x >= width || y >= height || grid[y][x] == 0) return false;
+
+        int passages = 0;
+        if (x > 0 && grid[y][x - 1] == 0) passages++;
+        if (x < width - 1 && grid[y][x + 1] == 0) passages++;
+        if (y > 0 && grid[y - 1][x] == 0) passages++;
+        if (y < height - 1 && grid[y + 1][x] == 0) passages++;
+
+        return passages == 1;
+    }
+
+    vector<Cell> getNeighbors(int x, int y) {
+        vector<Cell> neighbors;
+        if (x > 1) neighbors.push_back(Cell(x - 2, y));
+        if (x < width - 2) neighbors.push_back(Cell(x + 2, y));
+        if (y > 1) neighbors.push_back(Cell(x, y - 2));
+        if (y < height - 2) neighbors.push_back(Cell(x, y + 2));
+        return neighbors;
+    }
+
+    vector<Cell> reconstructPath(Node* node) {
+        vector<Cell> path;
+        while (node != nullptr) {
+            path.emplace_back(node->x, node->y);
+            Node* temp = node;
+            node = node->parent;
+            delete temp; // Clean up dynamically allocated memory
+        }
+        reverse(path.begin(), path.end());
+        return path;
+    }
+};
+
+int main() {
+    int width = 21; // Ensure dimensions are odd for proper maze generation
+    int height = 21;
+    Maze maze(width, height);
+    maze.generateMaze();
+    cout << "Generated Maze:" << endl;
+    maze.printMaze();
+
+    Cell start(0, 0);
+    Cell end(width - 1, height - 1);
+    vector<Cell> path = maze.findPathAStar(start, end);
+
+    // Print path if it exists
+    if (!path.empty()) {
+        cout << "Path from (" << start.x << ", " << start.y << ") to (" << end.x << ", " << end.y << "):" << endl;
+        for (const Cell& cell : path) {
+            cout << "(" << cell.x << ", " << cell.y << ") ";
+        }
+        cout << endl;
+    } else {
+        cout << "No path found from (" << start.x << ", " << start.y << ") to (" << end.x << ", " << end.y << ")." << endl;
+    }
+
+    return 0;
+}
