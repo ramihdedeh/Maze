@@ -1,207 +1,109 @@
-#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <cstdlib>
 #include <ctime>
 #include <utility>
-#include <queue>
-#include <cmath>
-#include <limits>
-#include <SFML/Graphics.hpp>
 
 using namespace std;
 
-struct Point {
-    int x, y;
-    Point(int x, int y) : x(x), y(y) {}
-    bool operator ==(const Point& other) const {
-        return x == other.x && y == other.y;
-    }
-};
-
-struct Node {
-    Point point;
-    int gCost;
-    int hCost;
-    int fCost() const { return gCost + hCost; }
-    Node* parent;
-    Node(Point p, Node* parent = nullptr) : point(p), gCost(0), hCost(0), parent(parent) {}
-};
-int heuristic(const Point& a, const Point& b) {
-    return std::abs(a.x - b.x) + std::abs(a.y - b.y);
-}
-// Represents a cell in the maze
 struct Cell {
-    bool visited;
-    bool topWall;
-    bool rightWall;
-    bool bottomWall;
-    bool leftWall;
-    bool isPath; 
-    Cell() : visited(false), topWall(true), rightWall(true), bottomWall(true), leftWall(true), isPath(false) {} // Initialize isPath to false
+    bool visited = false;
+    bool topWall = true;
+    bool rightWall = true;
+    bool bottomWall = true;
+    bool leftWall = true;
 };
 
-void initializeMaze(vector<vector<Cell>>& maze, int width, int height) {
+using Maze = vector<vector<Cell>>;
+
+void initializeMaze(Maze& maze, int width, int height) {
     maze.resize(height, vector<Cell>(width));
 }
+
 bool isValid(int x, int y, int width, int height) {
     return x >= 0 && y >= 0 && x < width && y < height;
 }
 
-//Prim's algorithm
-void generateMaze(vector<vector<Cell>>& maze, int width, int height) {
+vector<pair<int, int>> getUnvisitedNeighbors(const Maze& maze, int x, int y) {
+    vector<pair<int, int>> neighbors;
+    const vector<pair<int, int>> directions{{0, -1}, {1, 0}, {0, 1}, {-1, 0}}; // N, E, S, W
+for (const auto& direction : directions) {
+    int dx = direction.first;
+    int dy = direction.second;
+    int nx = x + dx;
+    int ny = y + dy;
+    if (isValid(nx, ny, maze[0].size(), maze.size()) && !maze[ny][nx].visited) {
+        neighbors.emplace_back(nx, ny);
+    }
+}
+return neighbors;
+}
+
+void generateMaze(Maze& maze) {
     srand(time(nullptr));
     vector<pair<int, int>> frontier;
-    int startX = rand() % width;
-    int startY = rand() % height;
+    int startX = 0; // Start from the top-left corner
+    int startY = 0;
     maze[startY][startX].visited = true;
     frontier.push_back({startX, startY});
 
     while (!frontier.empty()) {
         int randIndex = rand() % frontier.size();
-        int x = frontier[randIndex].first;
-		int y = frontier[randIndex].second;
+        auto pair = frontier[randIndex];
+		int x = pair.first;
+		int y = pair.second;
         frontier.erase(frontier.begin() + randIndex);
 
-        vector<pair<int, int>> directions = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}};
-        vector<pair<int, int>> neighbors;
-
-        for (size_t i = 0; i < directions.size(); ++i) {
-		    int dx = directions[i].first;
-		    int dy = directions[i].second;
-            int nx = x + dx, ny = y + dy;
-            if (isValid(nx, ny, width, height) && !maze[ny][nx].visited) {
-                neighbors.push_back({nx, ny});
-            }
-        }
-
+        auto neighbors = getUnvisitedNeighbors(maze, x, y);
         if (!neighbors.empty()) {
-           	int nx = neighbors[rand() % neighbors.size()].first;
-			int ny = neighbors[rand() % neighbors.size()].second;	
+            auto neighbor = neighbors[rand() % neighbors.size()];
+			int nx = neighbor.first;
+			int ny = neighbor.second;
+
+
+            if (nx > x) maze[y][x].rightWall = maze[ny][nx].leftWall = false;
+            else if (nx < x) maze[y][x].leftWall = maze[ny][nx].rightWall = false;
+            else if (ny > y) maze[y][x].bottomWall = maze[ny][nx].topWall = false;
+            else if (ny < y) maze[y][x].topWall = maze[ny][nx].bottomWall = false;
+
             maze[ny][nx].visited = true;
-
-            if (nx == x + 1) {
-                maze[y][x].rightWall = false;
-                maze[ny][nx].leftWall = false;
-            } else if (nx == x - 1) {
-                maze[y][x].leftWall = false;
-                maze[ny][nx].rightWall = false;
-            } else if (ny == y + 1) {
-                maze[y][x].bottomWall = false;
-                maze[ny][nx].topWall = false;
-            } else if (ny == y - 1) {
-                maze[y][x].topWall = false;
-                maze[ny][nx].bottomWall = false;
-            }
-
-            for (size_t i = 0; i < directions.size(); ++i) {
-			    int dx = directions[i].first;
-			    int dy = directions[i].second;
-                int wx = nx + dx, wy = ny + dy;
-                if (isValid(wx, wy, width, height) && !maze[wy][wx].visited && find(frontier.begin(), frontier.end(), make_pair(wx, wy)) == frontier.end()) {
-                    frontier.push_back({wx, wy});
-                }
-            }
+            frontier.push_back({nx, ny});
+            frontier.insert(frontier.end(), neighbors.begin(), neighbors.end());
         }
     }
 }
 
-void printMaze(const vector<vector<Cell>>& maze) {
-    int height = maze.size();
-    int width = maze[0].size();
-
-    for (int i = 0; i < width; ++i) cout << "_ ";
-    cout << "\n";
-
-    for (int y = 0; y < height; ++y) {
-        cout << "|";
-        for (int x = 0; x < width; ++x) {
-            if (maze[y][x].isPath && !(x == 0 && y == 0) && !(x == width-1 && y == height-1)) // Check if cell is part of the path
-                cout << "*"; // Mark path cell
-            else if (maze[y][x].bottomWall) cout << "_"; 
-            else cout << " ";
-            if (maze[y][x].rightWall) cout << "|"; 
-            else if (!maze[y][x].isPath || (x == 0 && y == 0) || (x == width-1 && y == height-1)) 
-                cout << "."; // Ensure start and goal are not overwritten by path marker
-            else 
-                cout << "*"; // Mark path cell
+void printMaze(const Maze& maze) {
+    for (int y = 0; y < maze.size(); y++) {
+        // Top row of cells
+        for (int x = 0; x < maze[0].size(); x++) {
+            cout << (maze[y][x].topWall ? "+---" : "+   ");
         }
-        cout << "\n";
-    }
-}
+        cout << "+" << endl; // Rightmost boundary
 
+        // Cell rows
+        for (int x = 0; x < maze[0].size(); x++) {
+            cout << (maze[y][x].leftWall ? "|   " : "    ");
+        }
+        cout << "|" << endl; // Rightmost boundary
+    }
+
+    // Bottom row of the maze
+    for (int x = 0; x < maze[0].size(); x++) {
+        cout << "+---";
+    }
+    cout << "+" << endl;
+}
 
 int main() {
     int width, height;
-    std::cout << "Enter the width and height of the maze: ";
-    std::cin >> width >> height;
+    cout << "Enter the width and height of the maze: ";
+    cin >> width >> height;
 
-    vector<vector<Cell>> maze;
+    Maze maze;
     initializeMaze(maze, width, height);
-    generateMaze(maze, width, height);
-
-    // Create an SFML window
-    sf::RenderWindow window(sf::VideoMode(800, 600), "Maze Visualizer");
-
-    // Set up colors for different elements
-    sf::Color wallColor = sf::Color::Black;
-    sf::Color pathColor = sf::Color::Red;
-    sf::Color openColor = sf::Color::White;
-
-    // Calculate cell size based on window size and maze dimensions
-    int cellWidth = window.getSize().x / width;
-    int cellHeight = window.getSize().y / height;
-
-    // Run the program as long as the window is open
-    while (window.isOpen()) {
-        sf::Event event;
-        while (window.pollEvent(event)) {
-            if (event.type == sf::Event::Closed)
-                window.close();
-        }
-
-        window.clear(openColor); // Clear old frame
-
-        // Draw the maze
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                // Draw walls
-                if (maze[y][x].topWall) {
-                    sf::RectangleShape topWall(sf::Vector2f(cellWidth, 2));
-                    topWall.setPosition(x * cellWidth, y * cellHeight);
-                    topWall.setFillColor(wallColor);
-                    window.draw(topWall);
-                }
-                if (maze[y][x].rightWall) {
-                    sf::RectangleShape rightWall(sf::Vector2f(2, cellHeight));
-                    rightWall.setPosition((x + 1) * cellWidth - 2, y * cellHeight);
-                    rightWall.setFillColor(wallColor);
-                    window.draw(rightWall);
-                }
-                if (maze[y][x].bottomWall) {
-                    sf::RectangleShape bottomWall(sf::Vector2f(cellWidth, 2));
-                    bottomWall.setPosition(x * cellWidth, (y + 1) * cellHeight - 2);
-                    bottomWall.setFillColor(wallColor);
-                    window.draw(bottomWall);
-                }
-                if (maze[y][x].leftWall) {
-                    sf::RectangleShape leftWall(sf::Vector2f(2, cellHeight));
-                    leftWall.setPosition(x * cellWidth, y * cellHeight);
-                    leftWall.setFillColor(wallColor);
-                    window.draw(leftWall);
-                }
-                // Draw path if necessary
-                if (maze[y][x].isPath) {
-                    sf::RectangleShape pathCell(sf::Vector2f(cellWidth, cellHeight));
-                    pathCell.setPosition(x * cellWidth, y * cellHeight);
-                    pathCell.setFillColor(pathColor);
-                    window.draw(pathCell);
-                }
-            }
-        }
-
-        window.display(); // End the current frame
-    }
+    generateMaze(maze);
+    printMaze(maze);
 
     return 0;
 }
