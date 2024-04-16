@@ -37,7 +37,7 @@ struct Cell {
     bool rightWall;
     bool bottomWall;
     bool leftWall;
-    bool isPath; // Add this line
+    bool isPath; 
     Cell() : visited(false), topWall(true), rightWall(true), bottomWall(true), leftWall(true), isPath(false) {} // Initialize isPath to false
 };
 
