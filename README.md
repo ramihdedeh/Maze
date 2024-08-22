@@ -43,39 +43,15 @@ The Maze Project is an application designed to create and solve mazes using vari
    mkdir build && cd build
    ```
 
-4. **Configure the project using CMake**:
-   ```bash
-   cmake ..
-   ```
-
-5. **Build the project**:
-   ```bash
-   make
-   ```
-
 ### Running the Application
 
-To run the application after building it:
+To run the application using Dev-C++:
 
-```bash
-./MazeApp
-```
+1. **Open Dev-C++** and load the project by opening the main C++ file (e.g., `main.cpp`).
+2. At the top menu bar, click on the **"Execute"** option.
+3. From the dropdown, select **"Compile & Run"** to build and execute the application.
 
-### Running Tests
 
-To run the unit tests:
-
-```bash
-make test
-```
-
-### Packaging the Application
-
-To package the application into a distributable format:
-
-```bash
-make package
-```
 
 ## Project Structure
 
